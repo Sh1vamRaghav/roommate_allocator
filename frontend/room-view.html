@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Assigned Room</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="dashboard">
+
+    <h2>🏠 Room Allocation Result</h2>
+
+    <div class="section">
+
+        <h3>👤 Student Information</h3>
+
+        <div class="info-grid">
+            <p><strong>Name:</strong> <span id="studentName">Loading...</span></p>
+            <p><strong>College:</strong> <span id="studentCollege">Loading...</span></p>
+            <p><strong>Course:</strong> <span id="studentCourse">Loading...</span></p>
+            <p><strong>Year:</strong> <span id="studentYear">Loading...</span></p>
+        </div>
+
+    </div>
+
+    <div class="section">
+
+        <h3>🛏 Assigned Room Details</h3>
+
+        <div class="room-box">
+            <p><strong>Room ID:</strong> <span id="roomId">Not Assigned Yet</span></p>
+            <p><strong>Room Capacity:</strong> <span id="roomCapacity">--</span></p>
+            <p><strong>Block:</strong> <span id="roomBlock">--</span></p>
+            <p><strong>Allocation Status:</strong> 
+                <span id="allocationStatus" style="color: #00ffcc;">
+                    Pending
+                </span>
+            </p>
+        </div>
+
+    </div>
+
+    <button onclick="window.location.href='student-dashboard.html'">
+        ⬅ Back to Dashboard
+    </button>
+
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
