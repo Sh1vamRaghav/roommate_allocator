@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="dashboard">
+
+    <h2>⚙ Admin Dashboard</h2>
+
+    <!-- Allocation Control -->
+    <div class="section">
+        <h3>Room Allocation Control</h3>
+        <button onclick="runAllocation()">Run Room Allocation</button>
+        <p id="allocationMessage" style="margin-top:15px;"></p>
+    </div>
+
+    <!-- Student List -->
+    <div class="section">
+        <h3>Registered Students</h3>
+
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>College</th>
+                    <th>Course</th>
+                    <th>Status</th>
+                    <th>Room</th>
+                </tr>
+            </thead>
+            <tbody id="studentTableBody">
+                <!-- Students will load here -->
+            </tbody>
+        </table>
+
+    </div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
