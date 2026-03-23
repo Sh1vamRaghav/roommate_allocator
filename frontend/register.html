@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - Roommate Allocator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Register</h1>
+    </header>
+    <div class="card">
+      <form id="registerForm">
+        <div class="form-group">
+          <label for="name">Name</label>
+          <input type="text" id="name" name="name" required>
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" minlength="6" required>
+        </div>
+        <div class="form-group">
+          <label for="role">
+            <input type="checkbox" id="role" name="role" value="ADMIN"> Admin (check for admin)
+          </label>
+        </div>
+        <button type="submit" class="btn">Register</button>
+        <p style="text-align: center; margin-top: 20px;">
+          Already have account? <a href="login.html" style="color: #667eea;">Login</a>
+        </p>
+      </form>
+    </div>
+  </div>
+  <script src="script.js"></script>
+  <script>
+    const form = document.getElementById('registerForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData);
+      try {
+        const result = await apiFetch('/auth/register', { 
+          method: 'POST', 
+          body: JSON.stringify(data) 
+        });
+        if (result) {
+          alert('Registered! Please login.');
+          window.location.href = 'login.html';
+        }
+      } catch {}
+    });
+  </script>
+</body>
+</html>

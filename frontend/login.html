@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Roommate Allocator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Login</h1>
+    </header>
+    <div class="card">
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit" class="btn">Login</button>
+        <p style="text-align: center; margin-top: 20px;">
+          No account? <a href="register.html" style="color: #667eea;">Register</a>
+        </p>
+      </form>
+    </div>
+  </div>
+  <script src="script.js"></script>
+  <script>
+    const form = document.getElementById('loginForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData);
+      const result = await apiFetch('/auth/login', { 
+        method: 'POST', 
+        body: JSON.stringify(data) 
+      });
+      if (result) {
+        setToken(result.token, result.user);
+        const decoded = parseJwt(result.token);
+        window.location.href = decoded.role === 'ADMIN' ? 'admin-dashboard.html' : 'student-dashboard.html';
+      }
+    });
+  </script>
+</body>
+</html>
