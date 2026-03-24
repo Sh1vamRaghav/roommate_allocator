@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>Admin Dashboard</h1>
+      <button class="btn btn-danger logout-btn" style="float: right;">Logout</button>
+    </header>
+
+    <div class="card">
+      <button class="btn run-alloc-btn">Run Room Allocation</button>
+    </div>
+
+    <div class="card">
+      <h2>All Students</h2>
+      <div id="studentsTable"></div>
+    </div>
+
+    <div class="card">
+      <h2>Current Allocations</h2>
+      <div id="allocationsTable"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    async function loadStudents() {
+      const students = await apiFetch('/admin/students');
+      const container = document.getElementById('studentsTable');
+      if (!students || students.length === 0) {
+        container.innerHTML = '<p>No students.</p>';
+        return;
+      }
+      let html = '<table><tr><th>Name</th><th>Email</th><th>Sleep</th><th>Wake</th><th>Noise</th><th>Guests</th><th>Temp</th></tr>';
+      students.forEach(s => {
+        html += `<tr>
+          <td>${s.name}</td>
+          <td>${s.email}</td>
+          <td>${s.sleep_time || 'N/A'}</td>
+          <td>${s.wake_time || 'N/A'}</td>
+          <td>${s.preferred_study_noise_level || 'N/A'}</td>
+          <td>${s.guest_visits_per_month || 'N/A'}</td>
+          <td>${s.preferred_room_temperature || 'N/A'}°C</td>
+        </tr>`;
+      });
+      html += '</table>';
+      container.innerHTML = html;
+    }
+
+    async function loadAllocations() {
+      const allocations = await apiFetch('/admin/allocations');
+      const container = document.getElementById('allocationsTable');
+      if (!allocations || allocations.length === 0) {
+        container.innerHTML = '<p>No allocations.</p>';
+        return;
+      }
+      let html = '<table><tr><th>Student</th><th>Email</th><th>Room ID</th><th>Capacity</th></tr>';
+      allocations.forEach(a => {
+        html += `<tr>
+          <td>${a.student_name}</td>
+          <td>${a.email}</td>
+          <td>${a.room_id}</td>
+          <td>${a.capacity}</td>
+        </tr>`;
+      });
+      html += '</table>';
+      container.innerHTML = html;
+    }
+
+    async function runAllocation() {
+      if (!confirm('Clear existing allocations and run new?')) return;
+      try {
+        const result = await apiFetch('/admin/run-allocation', { method: 'POST' });
+        alert(`Allocated ${result.allocated}/${result.total_students}`);
+        loadStudents();
+        loadAllocations();
+      } catch (err) {
+        alert('Allocation failed');
+      }
+    }
+
+    // Initial load
+    loadStudents();
+    loadAllocations();
+  </script>
+</body>
+</html>
