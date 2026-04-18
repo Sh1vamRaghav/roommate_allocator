@@ -154,13 +154,20 @@
     });
 
     // ── Preferences ──────────────────────────────────────────
+    function time12hr(t) {
+      if (!t) return '-';
+      const [h, m] = t.split(':').map(Number);
+      const ampm = h < 12 ? 'AM' : 'PM';
+      return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${ampm}`;
+    }
+
     async function loadPreferences() {
       const prefs = await apiFetch('/preferences');
       if (!prefs || prefs.__error) return;
       
       // Display mode
-      document.getElementById('disp_sleep').textContent = prefs.sleep_time || '-';
-      document.getElementById('disp_wake').textContent = prefs.wake_time || '-';
+      document.getElementById('disp_sleep').textContent = prefs.sleep_time ? time12hr(prefs.sleep_time) : '-';
+      document.getElementById('disp_wake').textContent = prefs.wake_time ? time12hr(prefs.wake_time) : '-';
       document.getElementById('disp_noise').textContent = prefs.preferred_study_noise_level != null ? prefs.preferred_study_noise_level : '-';
       document.getElementById('disp_guests').textContent = prefs.guest_visits_per_month != null ? prefs.guest_visits_per_month : '-';
       document.getElementById('disp_temp').textContent = prefs.preferred_room_temperature != null ? prefs.preferred_room_temperature : '-';
@@ -201,22 +208,23 @@
       const btn   = document.getElementById('savePrefsBtn');
       const alert = document.getElementById('prefsAlert');
       clearAlert(alert);
+      const toVal = id => {
+        const v = document.getElementById(id).value.trim();
+        return v === '' ? null : v;
+      };
       const data = {
-        sleep_time:                      document.getElementById('pref_sleep').value.trim() === '' ? undefined : document.getElementById('pref_sleep').value.trim(),
-        wake_time:                       document.getElementById('pref_wake').value.trim() === '' ? undefined : document.getElementById('pref_wake').value.trim(),
-        preferred_study_noise_level:     document.getElementById('pref_noise').value.trim() === '' ? undefined : document.getElementById('pref_noise').value.trim(),
-        guest_visits_per_month:          document.getElementById('pref_guests').value.trim() === '' ? undefined : document.getElementById('pref_guests').value.trim(),
-        preferred_room_temperature:      document.getElementById('pref_temp').value.trim() === '' ? undefined : document.getElementById('pref_temp').value.trim(),
-      }; 
-      // Strip undefined keys
-      Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
+        sleep_time:                   toVal('pref_sleep'),
+        wake_time:                    toVal('pref_wake'),
+        preferred_study_noise_level:  toVal('pref_noise'),
+        guest_visits_per_month:       toVal('pref_guests'),
+        preferred_room_temperature:   toVal('pref_temp'),
+      };
 
       setLoading(btn, true);
       const result = await apiFetch('/preferences', { method: 'PUT', body: JSON.stringify(data) });
       setLoading(btn, false);
       if (result?.__error) {
-        let msg = result.error || (result.errors ? result.errors.map(e => e.msg || JSON.stringify(e)).join('; ') : 'Could not save preferences.');
-        if (result.detail) msg += ' ' + result.detail;
+        const msg = result.detail || result.error || (result.errors ? result.errors.map(e => e.msg).join('; ') : 'Could not save preferences.');
         showAlert(alert, msg);
       } else {
         showAlert(alert, result.message || 'Preferences saved.', 'success');
@@ -285,4 +293,3 @@
   </script>
 </body>
 </html>
-
