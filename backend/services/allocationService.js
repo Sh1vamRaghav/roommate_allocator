@@ -1,63 +1,66 @@
 const db = require('../models/db');
 
-// Convert TIME to minutes since midnight
+// Convert TIME string (HH:MM:SS) to minutes since midnight
 const timeToMinutes = (timeStr) => {
   if (!timeStr) return 0;
   const [hours, minutes] = timeStr.split(':').map(Number);
   return hours * 60 + minutes;
 };
 
-// Similarity score between two prefs (lower = better)
+// Similarity score between two preference sets (lower = more compatible)
 const similarityScore = (p1, p2) => {
-  const s_sleep = Math.abs(timeToMinutes(p1.sleep_time) - timeToMinutes(p2.sleep_time));
-  const s_wake = Math.abs(timeToMinutes(p1.wake_time) - timeToMinutes(p2.wake_time));
-  const s_noise = Math.abs(p1.preferred_study_noise_level - p2.preferred_study_noise_level || 0);
-  const s_guests = Math.abs(p1.guest_visits_per_month - p2.guest_visits_per_month || 0);
-  const s_temp = Math.abs(p1.preferred_room_temperature - p2.preferred_room_temperature || 0);
+  const s_sleep  = Math.abs(timeToMinutes(p1.sleep_time) - timeToMinutes(p2.sleep_time));
+  const s_wake   = Math.abs(timeToMinutes(p1.wake_time)  - timeToMinutes(p2.wake_time));
+  const s_noise  = Math.abs((p1.preferred_study_noise_level  ?? 0) - (p2.preferred_study_noise_level  ?? 0));
+  const s_guests = Math.abs((p1.guest_visits_per_month       ?? 0) - (p2.guest_visits_per_month       ?? 0));
+  const s_temp   = Math.abs((p1.preferred_room_temperature   ?? 0) - (p2.preferred_room_temperature   ?? 0));
   return s_sleep + s_wake + s_noise + s_guests + s_temp;
 };
 
 const runAllocation = async () => {
-  const client = await db.query('BEGIN');
-  try {
-    // Clear existing allocations
-    await db.query('DELETE FROM ALLOCATIONS');
+  const { pool } = db;
+  const client = await pool.connect();
 
-    // Fetch students with complete prefs
-    const { rows: students } = await db.query(`
+  try {
+    await client.query('BEGIN');
+
+    // Clear existing allocations
+    await client.query('DELETE FROM ALLOCATIONS');
+
+    // Fetch all students with their preferences
+    const { rows: students } = await client.query(`
       SELECT u.user_id, p.*
       FROM USERS u
-      JOIN PREFERENCES p ON u.user_id = p.user_id
+      LEFT JOIN PREFERENCES p ON u.user_id = p.user_id
       WHERE u.role = 'STUDENT'
     `);
 
     if (students.length < 2) {
-      await db.query('COMMIT');
-      return { allocated: 0, message: 'Insufficient students with preferences' };
+      await client.query('COMMIT');
+      return { allocated: 0, total_students: students.length, unallocated: students.length, message: 'Not enough students to allocate' };
     }
 
-    // Fetch empty rooms sorted by capacity ASC
-    const { rows: rooms } = await db.query('SELECT * FROM ROOMS ORDER BY capacity ASC');
+    // Fetch rooms sorted by capacity ascending (fill smaller rooms first)
+    const { rows: rooms } = await client.query('SELECT * FROM ROOMS ORDER BY capacity ASC');
 
+    let candidates = [...students];
     let allocated = 0;
-    let roomIdx = 0;
 
-    // Greedy assignment: for each room, fill with most compatible students
     for (const room of rooms) {
-      let roomStudents = [];
-      let candidates = [...students];
+      if (candidates.length === 0) break;
 
-      // Fill room up to capacity
+      const roomStudents = [];
+
       while (roomStudents.length < room.capacity && candidates.length > 0) {
         let bestCandidate = null;
         let bestScore = Infinity;
 
         for (const cand of candidates) {
-          let score = 0;
-          if (roomStudents.length > 0) {
-            // Avg similarity to current room group
-            score = roomStudents.reduce((sum, rs) => sum + similarityScore(rs, cand), 0) / roomStudents.length;
-          }
+          // Score = average similarity to current room occupants (0 if room is empty)
+          const score = roomStudents.length > 0
+            ? roomStudents.reduce((sum, rs) => sum + similarityScore(rs, cand), 0) / roomStudents.length
+            : 0;
+
           if (score < bestScore) {
             bestScore = score;
             bestCandidate = cand;
@@ -73,24 +76,28 @@ const runAllocation = async () => {
         }
       }
 
-      // Assign to room
-      for (const stu of roomStudents) {
-        await db.query(
+      // Insert allocations for this room
+      for (const student of roomStudents) {
+        await client.query(
           'INSERT INTO ALLOCATIONS (user_id, room_id) VALUES ($1, $2)',
-          [stu.user_id, room.room_id]
+          [student.user_id, room.room_id]
         );
       }
-
-      if (candidates.length === 0) break;
     }
 
-    await db.query('COMMIT');
-    return { allocated, total_students: students.length, unallocated: students.length - allocated };
+    await client.query('COMMIT');
+    return {
+      allocated,
+      total_students: students.length,
+      unallocated: students.length - allocated,
+    };
   } catch (err) {
-    await db.query('ROLLBACK');
+    await client.query('ROLLBACK');
     throw err;
+  } finally {
+    // Always release exactly once — in finally, not inside try
+    client.release();
   }
 };
 
 module.exports = { runAllocation };
-
