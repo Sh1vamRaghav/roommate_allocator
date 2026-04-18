@@ -59,7 +59,17 @@ const getPreferences = async (req, res) => {
       'SELECT * FROM PREFERENCES WHERE user_id = $1',
       [req.user.user_id]
     );
-    res.json(rows[0] || {});
+    const prefs = rows[0] || {};
+    // Normalize time strings to HH:MM format (PostgreSQL TIME stores HH:MM:SS)
+    const normalizeTime = (t) => {
+      if (!t || typeof t !== 'string') return t;
+      const parts = t.split(':');
+      if (parts.length >= 2) return `${parts[0].padStart(2, '0')}:${parts[1]}`;
+      return t;
+    };
+    if (prefs.sleep_time) prefs.sleep_time = normalizeTime(prefs.sleep_time);
+    if (prefs.wake_time) prefs.wake_time = normalizeTime(prefs.wake_time);
+    res.json(prefs);
   } catch (err) {
     console.error('getPreferences error:', err);
     res.status(500).json({ error: 'Failed to fetch preferences.' });
@@ -67,32 +77,52 @@ const getPreferences = async (req, res) => {
 };
 
 const updatePreferences = [
-  body('sleep_time').optional().isTime(),
-  body('wake_time').optional().isTime(),
-  body('preferred_study_noise_level').optional().isInt({ min: 0, max: 10 }),
-  body('guest_visits_per_month').optional().isInt({ min: 0, max: 31 }),
-  body('preferred_room_temperature').optional().isInt({ min: 15, max: 30 }),
+  // Accept HH:MM or HH:MM:SS with optional zero-padding on hours (0-23)
+  body('sleep_time').optional().matches(/^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/),
+  body('wake_time').optional().matches(/^([0-9]|0[0-9]|1[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/),
+  body('preferred_study_noise_level').optional().toInt().isInt({ min: 0, max: 10 }),
+  body('guest_visits_per_month').optional().toInt().isInt({ min: 0, max: 31 }),
+  body('preferred_room_temperature').optional().toInt().isInt({ min: 15, max: 30 }),
 
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    const { sleep_time, wake_time, preferred_study_noise_level, guest_visits_per_month, preferred_room_temperature } = req.body;
+    let { sleep_time, wake_time, preferred_study_noise_level, guest_visits_per_month, preferred_room_temperature } = req.body;
+
+    // Coerce to proper types and normalize times to HH:MM (strip optional seconds)
+    sleep_time = (sleep_time && String(sleep_time).trim())
+      ? String(sleep_time).trim().split(':').slice(0, 2).join(':')
+      : null;
+    wake_time = (wake_time && String(wake_time).trim())
+      ? String(wake_time).trim().split(':').slice(0, 2).join(':')
+      : null;
+    preferred_study_noise_level = preferred_study_noise_level != null && preferred_study_noise_level !== '' ? parseInt(preferred_study_noise_level) : null;
+    guest_visits_per_month = guest_visits_per_month != null && guest_visits_per_month !== '' ? parseInt(guest_visits_per_month) : null;
+    preferred_room_temperature = preferred_room_temperature != null && preferred_room_temperature !== '' ? parseInt(preferred_room_temperature) : null;
 
     try {
-      await db.query('DELETE FROM PREFERENCES WHERE user_id = $1', [req.user.user_id]);
-
+      console.log('updatePreferences payload:', { sleep_time, wake_time, preferred_study_noise_level, guest_visits_per_month, preferred_room_temperature });
       await db.query(
-        `INSERT INTO PREFERENCES
-          (user_id, sleep_time, wake_time, preferred_study_noise_level, guest_visits_per_month, preferred_room_temperature)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
+        `INSERT INTO PREFERENCES (user_id, sleep_time, wake_time, preferred_study_noise_level, guest_visits_per_month, preferred_room_temperature)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (user_id) DO UPDATE SET
+           sleep_time = EXCLUDED.sleep_time,
+           wake_time = EXCLUDED.wake_time,
+           preferred_study_noise_level = EXCLUDED.preferred_study_noise_level,
+           guest_visits_per_month = EXCLUDED.guest_visits_per_month,
+           preferred_room_temperature = EXCLUDED.preferred_room_temperature`,
         [req.user.user_id, sleep_time, wake_time, preferred_study_noise_level, guest_visits_per_month, preferred_room_temperature]
       );
 
       res.json({ message: 'Preferences updated successfully.' });
     } catch (err) {
       console.error('updatePreferences error:', err);
-      res.status(500).json({ error: 'Failed to update preferences.' });
+      const payload = { error: 'Failed to update preferences.' };
+      if (process.env.NODE_ENV === 'development' && err && err.message) {
+        payload.detail = err.message;
+      }
+      res.status(500).json(payload);
     }
   },
 ];
@@ -135,4 +165,3 @@ const deleteAccount = async (req, res) => {
 };
 
 module.exports = { getProfile, updateProfile, getPreferences, updatePreferences, getMyRoom, deleteAccount };
-

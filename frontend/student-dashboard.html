@@ -3,134 +3,286 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Student Dashboard</title>
+  <title>Dashboard — Roommate Allocator</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <header class="header">
-      <h1>Student Dashboard</h1>
-      <button class="btn btn-danger logout-btn" style="float: right;">Logout</button>
-    </header>
-    
+
+    <div class="header-bar">
+      <h1>🏠 Roommate Allocator</h1>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="user-info" id="userGreeting"></div>
+        <button class="btn btn-danger logout-btn">Sign out</button>
+        <button class="btn btn-secondary" id="deleteAccountBtn">Delete Account</button>
+      </div>
+    </div>
+
     <nav>
       <ul>
-        <li><a href="#" class="nav-link" data-section="profile">Profile</a></li>
+        <li><a href="#" class="nav-link active" data-section="profile">Profile</a></li>
         <li><a href="#" class="nav-link" data-section="preferences">Preferences</a></li>
         <li><a href="#" class="nav-link" data-section="room">My Room</a></li>
       </ul>
     </nav>
 
-    <div id="profile" class="section card active">
-      <h2>Profile</h2>
-      <form id="profileForm">
+    <!-- Profile -->
+    <div id="profile" class="section active">
+      <div class="card">
+        <h2>Profile</h2>
+        <div id="profileAlert"></div>
         <div class="form-group">
-          <label>Name</label>
-          <input type="text" id="prof_name" name="name">
+          <label>Full name</label>
+          <input type="text" id="prof_name" placeholder="Your name">
         </div>
         <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="prof_email" name="email">
+          <label>Email address</label>
+          <input type="email" id="prof_email" placeholder="you@example.com">
         </div>
-        <button type="submit" class="btn">Update Profile</button>
-      </form>
+        <button class="btn" id="saveProfileBtn">Save changes</button>
+      </div>
     </div>
 
-    <div id="preferences" class="section card">
-      <h2>Lifestyle Preferences</h2>
-      <form id="prefsForm">
-        <div class="form-group">
-          <label>Sleep Time</label>
-          <input type="time" name="sleep_time">
+    <!-- Preferences -->
+    <div id="preferences" class="section">
+      <div class="card">
+        <h2>Lifestyle Preferences</h2>
+        <p style="color:var(--text2);font-size:0.85rem;margin-bottom:20px;">
+          These preferences are used by the allocation algorithm to match you with compatible roommates.
+        </p>
+        <div id="prefsAlert"></div>
+        
+        <!-- Display Mode -->
+        <div id="prefsDisplay" style="display:block;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px;">
+            <div><strong>Sleep time:</strong> <span id="disp_sleep">-</span></div>
+            <div><strong>Wake time:</strong> <span id="disp_wake">-</span></div>
+            <div><strong>Study noise level:</strong> <span id="disp_noise">-</span></div>
+            <div><strong>Guest visits / month:</strong> <span id="disp_guests">-</span></div>
+            <div><strong>Preferred room temp:</strong> <span id="disp_temp">-</span></div>
+          </div>
+          <button class="btn" id="editPrefsBtn">Edit Preferences</button>
         </div>
-        <div class="form-group">
-          <label>Wake Time</label>
-          <input type="time" name="wake_time">
+        
+        <!-- Edit Mode -->
+        <div id="prefsEdit" style="display:none;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;">
+            <div class="form-group">
+              <label>Sleep time</label>
+              <input type="time" id="pref_sleep" name="sleep_time">
+            </div>
+            <div class="form-group">
+              <label>Wake time</label>
+              <input type="time" id="pref_wake" name="wake_time">
+            </div>
+            <div class="form-group">
+              <label>Study noise level <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(0 = silent, 10 = loud)</span></label>
+              <input type="number" id="pref_noise" min="0" max="10" placeholder="e.g. 3">
+            </div>
+            <div class="form-group">
+              <label>Guest visits / month <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(0–31)</span></label>
+              <input type="number" id="pref_guests" min="0" max="31" placeholder="e.g. 4">
+            </div>
+            <div class="form-group">
+              <label>Preferred room temp <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">(°C, 15–30)</span></label>
+              <input type="number" id="pref_temp" min="15" max="30" placeholder="e.g. 22">
+            </div>
+          </div>
+          <button class="btn" id="savePrefsBtn">Save preferences</button>
+          <button class="btn btn-secondary" id="cancelPrefsBtn" style="margin-left:10px;">Cancel</button>
         </div>
-        <div class="form-group">
-          <label>Study Noise Level (0-10)</label>
-          <input type="number" name="preferred_study_noise_level" min="0" max="10">
-        </div>
-        <div class="form-group">
-          <label>Guest Visits/Month (0-31)</label>
-          <input type="number" name="guest_visits_per_month" min="0" max="31">
-        </div>
-        <div class="form-group">
-          <label>Room Temp (°C, 15-30)</label>
-          <input type="number" name="preferred_room_temperature" min="15" max="30">
-        </div>
-        <button type="submit" class="btn">Save Preferences</button>
-      </form>
+      </div>
     </div>
 
-    <div id="room" class="section card">
-      <h2>Assigned Room</h2>
-      <div id="roomInfo"></div>
+    <!-- Room -->
+    <div id="room" class="section">
+      <div class="card">
+        <h2>Assigned Room</h2>
+        <div id="roomInfo">
+          <div class="empty"><div class="empty-icon">🏠</div>Loading…</div>
+        </div>
+      </div>
     </div>
+
   </div>
 
   <script src="script.js"></script>
   <script>
-    let currentUser;
-
-    async function loadProfile() {
-      const profile = await apiFetch('/profile');
-      if (profile) {
-        currentUser = profile;
-        document.getElementById('prof_name').value = profile.name;
-        document.getElementById('prof_email').value = profile.email;
-      }
+    // ── Greet user ───────────────────────────────────────────
+    const user = getUser();
+    if (user) {
+      document.getElementById('userGreeting').innerHTML =
+        `<strong>${user.name || 'Student'}</strong><span class="badge badge-purple" style="margin-top:4px;">Student</span>`;
     }
 
-    document.getElementById('profileForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const data = Object.fromEntries(new FormData(e.target));
-      await apiFetch('/profile', { method: 'PUT', body: JSON.stringify(data) });
-      loadProfile();
+    // ── Section switching ────────────────────────────────────
+    function showSection(sectionId) {
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.getElementById(sectionId)?.classList.add('active');
+      if (sectionId === 'profile')     loadProfile();
+      if (sectionId === 'preferences') loadPreferences();
+      if (sectionId === 'room')        loadMyRoom();
+    }
+    window.showSection = showSection;
+
+    // ── Profile ──────────────────────────────────────────────
+    async function loadProfile() {
+      const profile = await apiFetch('/profile');
+      if (!profile || profile.__error) return;
+      document.getElementById('prof_name').value  = profile.name  || '';
+      document.getElementById('prof_email').value = profile.email || '';
+      if (user) { user.name = profile.name; localStorage.setItem('user', JSON.stringify(user)); }
+    }
+
+    document.getElementById('saveProfileBtn').addEventListener('click', async () => {
+      const btn   = document.getElementById('saveProfileBtn');
+      const alert = document.getElementById('profileAlert');
+      clearAlert(alert);
+      const data = {
+        name:  document.getElementById('prof_name').value.trim(),
+        email: document.getElementById('prof_email').value.trim(),
+      };
+      setLoading(btn, true);
+      const result = await apiFetch('/profile', { method: 'PUT', body: JSON.stringify(data) });
+      setLoading(btn, false);
+      if (result?.__error) {
+        showAlert(alert, result.error || 'Update failed.');
+      } else {
+        showAlert(alert, result.message || 'Profile updated.', 'success');
+        loadProfile();
+      }
     });
 
+    // ── Preferences ──────────────────────────────────────────
     async function loadPreferences() {
       const prefs = await apiFetch('/preferences');
-      const form = document.getElementById('prefsForm');
-      Object.keys(prefs || {}).forEach(key => {
-        const input = form.querySelector(`[name="${key}"]`);
-        if (input) input.value = prefs[key];
+      if (!prefs || prefs.__error) return;
+      
+      // Display mode
+      document.getElementById('disp_sleep').textContent = prefs.sleep_time || '-';
+      document.getElementById('disp_wake').textContent = prefs.wake_time || '-';
+      document.getElementById('disp_noise').textContent = prefs.preferred_study_noise_level != null ? prefs.preferred_study_noise_level : '-';
+      document.getElementById('disp_guests').textContent = prefs.guest_visits_per_month != null ? prefs.guest_visits_per_month : '-';
+      document.getElementById('disp_temp').textContent = prefs.preferred_room_temperature != null ? prefs.preferred_room_temperature : '-';
+      
+      // Edit mode
+      const map = {
+        sleep_time: 'pref_sleep', wake_time: 'pref_wake',
+        preferred_study_noise_level: 'pref_noise',
+        guest_visits_per_month: 'pref_guests',
+        preferred_room_temperature: 'pref_temp',
+      };
+      Object.entries(map).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = prefs[key] != null ? prefs[key] : '';
       });
     }
 
-    document.getElementById('prefsForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const data = Object.fromEntries(new FormData(e.target));
-      await apiFetch('/preferences', { method: 'PUT', body: JSON.stringify(data) });
-      loadPreferences();
+    function showPrefsDisplay() {
+      document.getElementById('prefsDisplay').style.display = 'block';
+      document.getElementById('prefsEdit').style.display = 'none';
+    }
+
+    function showPrefsEdit() {
+      document.getElementById('prefsDisplay').style.display = 'none';
+      document.getElementById('prefsEdit').style.display = 'block';
+    }
+
+    document.getElementById('editPrefsBtn').addEventListener('click', () => {
+      showPrefsEdit();
     });
 
-    async function loadMyRoom() {
-      const roomData = await apiFetch('/my-room');
-      const container = document.getElementById('roomInfo');
-      if (roomData.message) {
-        container.innerHTML = '<p>No room assigned yet. Ask admin to run allocation.</p>';
+    document.getElementById('cancelPrefsBtn').addEventListener('click', () => {
+      loadPreferences(); // Reload to reset form
+      showPrefsDisplay();
+    });
+
+    document.getElementById('savePrefsBtn').addEventListener('click', async () => {
+      const btn   = document.getElementById('savePrefsBtn');
+      const alert = document.getElementById('prefsAlert');
+      clearAlert(alert);
+      const data = {
+        sleep_time:                      document.getElementById('pref_sleep').value.trim() === '' ? undefined : document.getElementById('pref_sleep').value.trim(),
+        wake_time:                       document.getElementById('pref_wake').value.trim() === '' ? undefined : document.getElementById('pref_wake').value.trim(),
+        preferred_study_noise_level:     document.getElementById('pref_noise').value.trim() === '' ? undefined : document.getElementById('pref_noise').value.trim(),
+        guest_visits_per_month:          document.getElementById('pref_guests').value.trim() === '' ? undefined : document.getElementById('pref_guests').value.trim(),
+        preferred_room_temperature:      document.getElementById('pref_temp').value.trim() === '' ? undefined : document.getElementById('pref_temp').value.trim(),
+      }; 
+      // Strip undefined keys
+      Object.keys(data).forEach(k => data[k] === undefined && delete data[k]);
+
+      setLoading(btn, true);
+      const result = await apiFetch('/preferences', { method: 'PUT', body: JSON.stringify(data) });
+      setLoading(btn, false);
+      if (result?.__error) {
+        let msg = result.error || (result.errors ? result.errors.map(e => e.msg || JSON.stringify(e)).join('; ') : 'Could not save preferences.');
+        if (result.detail) msg += ' ' + result.detail;
+        showAlert(alert, msg);
       } else {
-        container.innerHTML = `
-          <table>
-            <tr><th>Room ID</th><td>${roomData.room_id}</td></tr>
-            <tr><th>Capacity</th><td>${roomData.capacity}</td></tr>
-            <tr><th>Roommate</th><td>${roomData.roommate_name || 'None yet'}</td></tr>
-          </table>
-        `;
+        showAlert(alert, result.message || 'Preferences saved.', 'success');
+        loadPreferences(); // Reload to update display
+        showPrefsDisplay();
       }
+    });
+
+    // ── My Room ──────────────────────────────────────────────
+    async function loadMyRoom() {
+      const container = document.getElementById('roomInfo');
+      container.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+
+      const data = await apiFetch('/my-room');
+
+      if (!data || data.__error) {
+        container.innerHTML = '<div class="empty"><div class="empty-icon">⚠</div>Failed to load room info.</div>';
+        return;
+      }
+
+      if (data.message) {
+        container.innerHTML = `
+          <div class="empty">
+            <div class="empty-icon">🏠</div>
+            <div>${data.message}</div>
+            <p style="margin-top:8px;font-size:0.8rem;color:var(--text3);">Ask your administrator to run the room allocation.</p>
+          </div>`;
+        return;
+      }
+
+      const roommates = data.roommates || 'None assigned yet';
+      container.innerHTML = `
+        <div class="room-info">
+          <div class="room-stat">
+            <div class="label">Room number</div>
+            <div class="value">#${data.room_id}</div>
+          </div>
+          <div class="room-stat">
+            <div class="label">Capacity</div>
+            <div class="value">${data.capacity} person${data.capacity !== 1 ? 's' : ''}</div>
+          </div>
+          <div class="room-stat" style="grid-column:1/-1">
+            <div class="label">Roommates</div>
+            <div class="value" style="font-size:0.95rem;font-weight:400;color:var(--text)">${roommates}</div>
+          </div>
+        </div>`;
     }
 
-    function showSection(sectionId) {
-      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-      document.getElementById(sectionId).classList.add('active');
-      if (sectionId === 'profile') loadProfile();
-      if (sectionId === 'preferences') loadPreferences();
-      if (sectionId === 'room') loadMyRoom();
-    }
+    // ── Delete Account ───────────────────────────────────────
+    document.getElementById('deleteAccountBtn').addEventListener('click', async () => {
+      if (!confirm('Delete your account? This cannot be undone and will remove your preferences and allocation.')) return;
+      
+      const result = await apiFetch('/profile', { 
+        method: 'DELETE'
+      });
+      if (result && !result.error) {
+        logout();
+        window.location.href = '/';
+      } else {
+        alert(result?.error || 'Delete failed.');
+      }
+    });
 
-    // Initial load
+    // ── Init ─────────────────────────────────────────────────
     showSection('profile');
   </script>
 </body>
 </html>
+

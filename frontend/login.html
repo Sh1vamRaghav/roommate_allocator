@@ -3,48 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Roommate Allocator</title>
+  <title>Sign in — Roommate Allocator</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <header class="header">
-      <h1>Login</h1>
-    </header>
-    <div class="card">
-      <form id="loginForm">
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input type="email" id="email" name="email" required>
-        </div>
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" name="password" required>
-        </div>
-        <button type="submit" class="btn">Login</button>
-        <p style="text-align: center; margin-top: 20px;">
-          No account? <a href="register.html" style="color: #667eea;">Register</a>
-        </p>
-      </form>
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div style="font-size:1.8rem;margin-bottom:8px;">🏠</div>
+        <h1>Welcome back</h1>
+        <p>Sign in to your account</p>
+      </div>
+
+      <div id="alertBox"></div>
+
+      <div class="form-group">
+        <label for="email">Email address</label>
+        <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+
+      <button class="btn" id="loginBtn" style="width:100%;justify-content:center;margin-top:4px;">
+        Sign in
+      </button>
+
+      <div class="auth-footer">
+        No account? <a href="register.html">Create one</a>
+      </div>
     </div>
   </div>
+
   <script src="script.js"></script>
   <script>
-    const form = document.getElementById('loginForm');
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(form);
-      const data = Object.fromEntries(formData);
-      const result = await apiFetch('/auth/login', { 
-        method: 'POST', 
-        body: JSON.stringify(data) 
-      });
-      if (result) {
-        setToken(result.token, result.user);
-        const decoded = parseJwt(result.token);
-        window.location.href = decoded.role === 'ADMIN' ? 'admin-dashboard.html' : 'student-dashboard.html';
+    const alertBox  = document.getElementById('alertBox');
+    const loginBtn  = document.getElementById('loginBtn');
+    const emailEl   = document.getElementById('email');
+    const passwordEl = document.getElementById('password');
+
+    async function doLogin() {
+      clearAlert(alertBox);
+      const email    = emailEl.value.trim();
+      const password = passwordEl.value;
+
+      if (!email || !password) {
+        showAlert(alertBox, 'Please enter your email and password.');
+        return;
       }
-    });
+
+      setLoading(loginBtn, true);
+      const result = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      setLoading(loginBtn, false);
+
+      if (!result || result.__error) {
+        showAlert(alertBox, result?.error || 'Login failed. Please try again.');
+        return;
+      }
+
+      setToken(result.token, result.user);
+      const decoded = parseJwt(result.token);
+      window.location.href = decoded?.role === 'ADMIN' ? 'admin-dashboard.html' : 'student-dashboard.html';
+    }
+
+    loginBtn.addEventListener('click', doLogin);
+
+    // Allow Enter key to submit
+    [emailEl, passwordEl].forEach(el =>
+      el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); })
+    );
   </script>
 </body>
 </html>

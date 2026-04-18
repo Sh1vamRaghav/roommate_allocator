@@ -10,7 +10,7 @@ CREATE TABLE USERS (
 -- PREFERENCES table
 CREATE TABLE PREFERENCES (
     preference_id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES USERS(user_id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES USERS(user_id) ON DELETE CASCADE UNIQUE,
     sleep_time TIME,
     wake_time TIME,
     preferred_study_noise_level INTEGER,

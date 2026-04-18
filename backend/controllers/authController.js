@@ -12,7 +12,8 @@ const register = [
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
+    const assignedRole = role === 'ADMIN' ? 'ADMIN' : 'STUDENT';
 
     try {
       const { rows } = await db.query('SELECT user_id FROM USERS WHERE email = $1', [email]);
@@ -22,7 +23,7 @@ const register = [
 
       const { rows: [user] } = await db.query(
         'INSERT INTO USERS (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING user_id, name, email, role',
-        [name, email, password_hash, 'STUDENT']   // role is always STUDENT on self-registration
+        [name, email, password_hash, assignedRole]
       );
 
       const token = jwt.sign(
@@ -74,4 +75,4 @@ const login = [
   },
 ];
 
-module.exports = { register, login };
+module.exports = { register, login }; 

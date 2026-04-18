@@ -73,9 +73,10 @@ Deploy: docker-compose.yml
 - Backend: Express, pg, bcryptjs, jsonwebtoken, express-validator, helmet
 - Frontend: Vanilla HTML/CSS/JS (localStorage JWT)
 - DB: PostgreSQL 14
-
+   
 ## Performance
 Supports 100+ students, alloc <5s greedy O(n^2) approx.
 
 All SRS requirements met, no omissions/inventions.
+
 

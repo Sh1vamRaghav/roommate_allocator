@@ -1,13 +1,16 @@
-// Shared API utils
+// ── API config ──────────────────────────────────────────────
 const API_BASE = '/api';
 
-function getToken() {
-  return localStorage.getItem('token');
-}
+// ── Token helpers ────────────────────────────────────────────
+function getToken() { return localStorage.getItem('token'); }
 
 function setToken(token, user) {
   localStorage.setItem('token', token);
   localStorage.setItem('user', JSON.stringify(user));
+}
+
+function getUser() {
+  try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
 }
 
 function logout() {
@@ -16,92 +19,85 @@ function logout() {
   window.location.href = '/';
 }
 
+// ── JWT parser ───────────────────────────────────────────────
+function parseJwt(token) {
+  try { return JSON.parse(atob(token.split('.')[1])); } catch { return null; }
+}
+
+// ── API fetch wrapper ────────────────────────────────────────
 async function apiFetch(endpoint, options = {}) {
   const token = getToken();
-  const defaults = {
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
     headers: {
       'Content-Type': 'application/json',
       ...(token && { Authorization: `Bearer ${token}` }),
       ...options.headers,
     },
-  };
-  const config = { ...defaults, ...options };
+  });
 
-  try {
-    const res = await fetch(`${API_BASE}${endpoint}`, config);
-    if (res.status === 401) {
-      logout();
-      return;
-    }
-    return await res.json();
-  } catch (err) {
-    console.error('API error:', err);
-    alert('Network error');
+  if (res.status === 401) { logout(); return null; }
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    // Return the error object so callers can inspect it
+    return { __error: true, status: res.status, ...data };
+  }
+
+  return data;
+}
+
+// ── UI helpers ───────────────────────────────────────────────
+function showAlert(container, message, type = 'error') {
+  const icon = type === 'error' ? '✕' : '✓';
+  container.innerHTML = `<div class="alert alert-${type}"><span>${icon}</span>${message}</div>`;
+}
+
+function clearAlert(container) { container.innerHTML = ''; }
+
+function setLoading(btn, loading) {
+  if (loading) {
+    btn.dataset.origText = btn.innerHTML;
+    btn.innerHTML = `<span class="spinner"></span> Please wait…`;
+    btn.disabled = true;
+  } else {
+    btn.innerHTML = btn.dataset.origText || btn.innerHTML;
+    btn.disabled = false;
   }
 }
 
-function parseJwt(token) {
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch {
-    return null;
-  }
-}
-
-async function onAppLoad() {
+// ── Route guard: redirect already-logged-in users ────────────
+function redirectIfLoggedIn() {
   const token = getToken();
   if (!token) return;
   const decoded = parseJwt(token);
   if (!decoded?.role) return;
-  const currentPath = window.location.pathname.split('/').pop();
-  if (decoded.role === 'ADMIN' && !currentPath.includes('admin-dashboard.html')) {
+  const page = window.location.pathname.split('/').pop();
+  if (decoded.role === 'ADMIN' && !page.includes('admin-dashboard')) {
     window.location.href = '/admin-dashboard.html';
-  } else if (decoded.role !== 'ADMIN' && !currentPath.includes('student-dashboard.html')) {
+  } else if (decoded.role === 'STUDENT' && !page.includes('student-dashboard')) {
     window.location.href = '/student-dashboard.html';
   }
 }
 
-// Form handler helper
-function handleFormSubmit(form, endpoint, afterSuccess) {
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData);
-    const result = await apiFetch(endpoint, { method: 'POST', body: JSON.stringify(data) });
-    if (result) {
-      alert('Success!');
-      if (afterSuccess) afterSuccess(result);
-    }
-  });
-}
+// ── Init on DOM ready ────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  redirectIfLoggedIn();
 
-// Global load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    onAppLoad();
-    onAppLoad();
-    // Attach logout listeners
-    document.querySelectorAll('.logout-btn').forEach(btn => {
-      btn.addEventListener('click', logout);
-    });
-    // Attach admin run alloc
-    // Nav links for student dashboard
-    document.querySelectorAll('.nav-link').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const sectionId = link.dataset.section;
-        if (sectionId && typeof window.showSection === 'function') {
-          window.showSection(sectionId);
-        }
-      });
-    });
-  });
-} else {
-  onAppLoad();
-  document.querySelectorAll('.logout-btn').forEach(btn => {
-    btn.addEventListener('click', logout);
-  });
-  document.querySelectorAll('.run-alloc-btn').forEach(btn => {
-    btn.addEventListener('click', window.runAllocation || (() => {}));
-  });
-}
+  document.querySelectorAll('.logout-btn').forEach(btn =>
+    btn.addEventListener('click', logout)
+  );
+
+  document.querySelectorAll('.nav-link').forEach(link =>
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const sectionId = link.dataset.section;
+      if (sectionId && typeof window.showSection === 'function') {
+        window.showSection(sectionId);
+      }
+      document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+    })
+  );
+});

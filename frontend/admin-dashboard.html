@@ -3,89 +3,187 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard</title>
+  <title>Admin Dashboard — Roommate Allocator</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <header class="header">
-      <h1>Admin Dashboard</h1>
-      <button class="btn btn-danger logout-btn" style="float: right;">Logout</button>
-    </header>
 
-    <div class="card">
-      <button class="btn run-alloc-btn">Run Room Allocation</button>
+    <div class="header-bar">
+      <h1>🏠 Roommate Allocator</h1>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <span class="badge badge-purple">Admin</span>
+        <button class="btn btn-danger logout-btn">Sign out</button>
+      </div>
     </div>
 
+    <!-- Allocation control -->
     <div class="card">
-      <h2>All Students</h2>
-      <div id="studentsTable"></div>
+      <h2>Room Allocation</h2>
+      <div id="allocAlert"></div>
+      <p style="color:var(--text2);font-size:0.875rem;margin-bottom:18px;">
+        Running allocation will clear all existing assignments and reassign every student to a room based on preference compatibility.
+      </p>
+      <button class="btn" id="runAllocBtn">Run allocation</button>
     </div>
 
+    <!-- Students table -->
     <div class="card">
-      <h2>Current Allocations</h2>
-      <div id="allocationsTable"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <h2 style="margin-bottom:0;">All students</h2>
+        <span id="studentCount" class="badge badge-gray"></span>
+      </div>
+      <div id="studentsTable">
+        <div class="empty"><span class="spinner"></span></div>
+      </div>
     </div>
+
+    <!-- Allocations table -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <h2 style="margin-bottom:0;">Current allocations</h2>
+        <span id="allocCount" class="badge badge-gray"></span>
+      </div>
+      <div id="allocationsTable">
+        <div class="empty"><span class="spinner"></span></div>
+      </div>
+    </div>
+
   </div>
 
   <script src="script.js"></script>
   <script>
+    // ── Helpers ──────────────────────────────────────────────
+    function time12hr(t) {
+      if (!t) return '—';
+      const [h, m] = t.split(':').map(Number);
+      return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+    }
+
+    function naOrVal(v, suffix = '') {
+      return (v == null || v === '') ? '<span style="color:var(--text3)">—</span>' : `${v}${suffix}`;
+    }
+
+    // ── Students ─────────────────────────────────────────────
     async function loadStudents() {
-      const students = await apiFetch('/admin/students');
       const container = document.getElementById('studentsTable');
-      if (!students || students.length === 0) {
-        container.innerHTML = '<p>No students.</p>';
+      const students  = await apiFetch('/admin/students');
+
+      if (!students || students.__error) {
+        container.innerHTML = '<div class="empty">Failed to load students.</div>';
         return;
       }
-      let html = '<table><tr><th>Name</th><th>Email</th><th>Sleep</th><th>Wake</th><th>Noise</th><th>Guests</th><th>Temp</th></tr>';
-      students.forEach(s => {
-        html += `<tr>
-          <td>${s.name}</td>
-          <td>${s.email}</td>
-          <td>${s.sleep_time || 'N/A'}</td>
-          <td>${s.wake_time || 'N/A'}</td>
-          <td>${s.preferred_study_noise_level || 'N/A'}</td>
-          <td>${s.guest_visits_per_month || 'N/A'}</td>
-          <td>${s.preferred_room_temperature || 'N/A'}°C</td>
-        </tr>`;
-      });
-      html += '</table>';
-      container.innerHTML = html;
+
+      document.getElementById('studentCount').textContent = `${students.length} student${students.length !== 1 ? 's' : ''}`;
+
+      if (students.length === 0) {
+        container.innerHTML = '<div class="empty"><div class="empty-icon">👤</div>No students registered yet.</div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th><th>Email</th>
+                <th>Sleep</th><th>Wake</th>
+                <th>Noise</th><th>Guests/mo</th><th>Temp</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${students.map(s => `
+                <tr>
+                  <td><strong style="font-weight:500">${s.name}</strong></td>
+                  <td style="color:var(--text2);font-family:var(--mono);font-size:0.8rem">${s.email}</td>
+                  <td>${time12hr(s.sleep_time)}</td>
+                  <td>${time12hr(s.wake_time)}</td>
+                  <td>${naOrVal(s.preferred_study_noise_level, '/10')}</td>
+                  <td>${naOrVal(s.guest_visits_per_month)}</td>
+                  <td>${naOrVal(s.preferred_room_temperature, '°C')}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
     }
 
+    // ── Allocations ──────────────────────────────────────────
     async function loadAllocations() {
+      const container   = document.getElementById('allocationsTable');
       const allocations = await apiFetch('/admin/allocations');
-      const container = document.getElementById('allocationsTable');
-      if (!allocations || allocations.length === 0) {
-        container.innerHTML = '<p>No allocations.</p>';
+
+      if (!allocations || allocations.__error) {
+        container.innerHTML = '<div class="empty">Failed to load allocations.</div>';
         return;
       }
-      let html = '<table><tr><th>Student</th><th>Email</th><th>Room ID</th><th>Capacity</th></tr>';
-      allocations.forEach(a => {
-        html += `<tr>
-          <td>${a.student_name}</td>
-          <td>${a.email}</td>
-          <td>${a.room_id}</td>
-          <td>${a.capacity}</td>
-        </tr>`;
-      });
-      html += '</table>';
-      container.innerHTML = html;
-    }
 
-    async function runAllocation() {
-      if (!confirm('Clear existing allocations and run new?')) return;
-      try {
-        const result = await apiFetch('/admin/run-allocation', { method: 'POST' });
-        alert(`Allocated ${result.allocated}/${result.total_students}`);
-        loadStudents();
-        loadAllocations();
-      } catch (err) {
-        alert('Allocation failed');
+      document.getElementById('allocCount').textContent = `${allocations.length} assignment${allocations.length !== 1 ? 's' : ''}`;
+
+      if (allocations.length === 0) {
+        container.innerHTML = '<div class="empty"><div class="empty-icon">🏠</div>No allocations yet. Run allocation to assign students to rooms.</div>';
+        return;
       }
+
+      // Group by room for a cleaner view
+      const byRoom = allocations.reduce((acc, a) => {
+        acc[a.room_id] = acc[a.room_id] || [];
+        acc[a.room_id].push(a);
+        return acc;
+      }, {});
+
+      container.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Room</th><th>Capacity</th><th>Student</th><th>Email</th></tr>
+            </thead>
+            <tbody>
+              ${Object.entries(byRoom).map(([roomId, members]) =>
+                members.map((a, i) => `
+                  <tr>
+                    ${i === 0
+                      ? `<td rowspan="${members.length}" style="font-weight:500;vertical-align:top;padding-top:13px">
+                           Room #${roomId}
+                         </td>
+                         <td rowspan="${members.length}" style="vertical-align:top;padding-top:13px">
+                           <span class="badge badge-gray">${a.capacity}</span>
+                         </td>`
+                      : ''}
+                    <td><strong style="font-weight:500">${a.student_name}</strong></td>
+                    <td style="color:var(--text2);font-family:var(--mono);font-size:0.8rem">${a.email}</td>
+                  </tr>`).join('')
+              ).join('')}
+            </tbody>
+          </table>
+        </div>`;
     }
 
-    // Initial load
+    // ── Run allocation ───────────────────────────────────────
+    document.getElementById('runAllocBtn').addEventListener('click', async () => {
+      const btn   = document.getElementById('runAllocBtn');
+      const alert = document.getElementById('allocAlert');
+      clearAlert(alert);
+
+      if (!confirm('This will clear all existing room assignments and re-run the allocation. Continue?')) return;
+
+      setLoading(btn, true);
+      const result = await apiFetch('/admin/run-allocation', { method: 'POST' });
+      setLoading(btn, false);
+
+      if (!result || result.__error) {
+        showAlert(alert, result?.error || 'Allocation failed. Please try again.');
+        return;
+      }
+
+      const msg = result.message
+        || `Allocated ${result.allocated} of ${result.total_students} students. ${result.unallocated > 0 ? `${result.unallocated} student(s) could not be assigned (insufficient room capacity).` : ''}`;
+
+      showAlert(alert, msg, 'success');
+      loadStudents();
+      loadAllocations();
+    });
+
+    // ── Init ─────────────────────────────────────────────────
     loadStudents();
     loadAllocations();
   </script>
